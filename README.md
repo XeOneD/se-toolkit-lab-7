@@ -91,3 +91,98 @@ By the end of this lab, you should be able to say:
 2. [Backend Integration](./lab/tasks/required/task-2.md) — P0: slash commands + real data
 3. [Intent-Based Natural Language Routing](./lab/tasks/required/task-3.md) — P1: LLM tool use
 4. [Containerize and Document](./lab/tasks/required/task-4.md) — P3: containerize + deploy
+
+## Deploy
+
+This section documents how to deploy the bot on your VM using Docker.
+
+### Prerequisites
+
+- VM with Docker and docker-compose installed
+- `.env.docker.secret` file with required environment variables
+- Bot token from @BotFather
+- LLM API key from Qwen Code
+
+### Environment variables
+
+Edit `.env.docker.secret` on your VM and set:
+
+```bash
+# Telegram Bot Token (from @BotFather)
+BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRsTUVwxyz
+
+# LLM API credentials (from Qwen Code)
+LLM_API_KEY=your-qwen-api-key
+LLM_API_MODEL=qwen3-coder-flash
+```
+
+The bot also needs `LMS_API_KEY` which should already be set from the backend setup.
+
+### Deploy commands
+
+1. **Stop the background bot process** (if running):
+   ```bash
+   cd ~/se-toolkit-lab-7
+   pkill -f "bot.py" 2>/dev/null || true
+   ```
+
+2. **Build and start all services**:
+   ```bash
+   docker compose --env-file .env.docker.secret up --build -d
+   ```
+
+3. **Verify all containers are running**:
+   ```bash
+   docker compose --env-file .env.docker.secret ps
+   ```
+   
+   You should see:
+   ```
+   SERVICE    STATUS
+   backend    Up
+   bot        Up
+   caddy      Up
+   pgadmin    Up
+   postgres   Up (healthy)
+   ```
+
+4. **Check bot logs**:
+   ```bash
+   docker compose --env-file .env.docker.secret logs bot --tail 20
+   ```
+   
+   Look for:
+   - "Starting bot... (polling)" — bot started successfully
+   - "HTTP Request: POST .../getUpdates" — bot is polling Telegram
+   - No Python tracebacks
+
+### Verify in Telegram
+
+Send these commands to your bot in Telegram:
+
+1. `/start` — should return welcome message
+2. `/health` — should show backend status
+3. "what labs are available?" — should list labs (LLM-powered)
+4. "which lab has the lowest pass rate?" — should compare and answer
+
+### Troubleshooting
+
+| Symptom | Solution |
+|---------|----------|
+| Bot container keeps restarting | Check logs: `docker compose logs bot`. Usually missing env var or import error. |
+| `/health` fails | `LMS_API_URL` must be `http://backend:8000` (Docker service name, not localhost). |
+| LLM queries fail | `LLM_API_BASE_URL` must use `http://host.docker.internal:42005/v1` — the Qwen proxy is on a different network. |
+| "BOT_TOKEN is required" | Add `BOT_TOKEN` to `.env.docker.secret` and rebuild. |
+| Build fails at `uv sync` | Make sure `bot/uv.lock` exists and is copied in Dockerfile. |
+
+### Update deployment
+
+After making code changes:
+
+```bash
+cd ~/se-toolkit-lab-7
+git pull
+docker compose --env-file .env.docker.secret up --build -d bot
+```
+
+This rebuilds only the bot container with the latest code.
