@@ -87,6 +87,13 @@ def main() -> None:
 
         # Test mode: run command and print response
         command = sys.argv[2]
+        
+        # Initialize API client for test mode
+        from config import settings
+        from handlers import init_api_client
+        
+        init_api_client(settings.lms_api_url, settings.lms_api_key)
+        
         response = asyncio.run(process_command(command))
         print(response)
         sys.exit(0)
@@ -103,10 +110,14 @@ def main() -> None:
 
     # Load configuration
     from config import settings
+    from handlers import init_api_client
 
     if not settings.bot_token:
         print("Error: BOT_TOKEN not set in .env.bot.secret", file=sys.stderr)
         sys.exit(1)
+
+    # Initialize API client
+    init_api_client(settings.lms_api_url, settings.lms_api_key)
 
     async def telegram_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle Telegram messages."""

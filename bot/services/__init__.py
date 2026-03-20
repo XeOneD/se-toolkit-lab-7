@@ -1,2 +1,5 @@
-# Services layer for external API clients
-# API client and LLM client will be added in Task 2 and Task 3
+"""Services layer for external API clients."""
+
+from .api_client import LMSAPIClient
+
+__all__ = ["LMSAPIClient"]
