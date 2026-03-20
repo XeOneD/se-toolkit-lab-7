@@ -69,12 +69,21 @@ async def fetch_logs(since: datetime | None = None) -> list[ApiLog]:
     """Fetch check results from the autochecker API with pagination."""
     all_logs: list[ApiLog] = []
 
-    async with httpx.AsyncClient(timeout=60) as client:
+    # Use HTTP/1.1 and connection limits to avoid server disconnects
+    limits = httpx.Limits(max_keepalive_connections=1, max_connections=5)
+    async with httpx.AsyncClient(timeout=60, limits=limits, http2=False) as client:
         cursor = since
+        iteration = 0
         while True:
+            iteration += 1
             params: dict[str, str | int] = {"limit": 500}
             if cursor is not None:
                 params["since"] = cursor.isoformat()
+
+            # Reconnect every 5 requests to avoid connection reuse issues
+            if iteration > 1 and (iteration - 1) % 5 == 0:
+                await client.aclose()
+                client = httpx.AsyncClient(timeout=60, limits=limits, http2=False)
 
             resp = await client.get(
                 f"{settings.autochecker_api_url}/api/logs",
